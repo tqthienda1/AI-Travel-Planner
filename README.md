@@ -1,26 +1,106 @@
 # AI Travel Planner
 
-AI-assisted weekend itineraries for Ho Chi Minh City, built for CSC13114. The agreed stack is React, Next.js and PostgreSQL. The agent must use checked place data through seven backend JSON tools; code calculates money and validates plans before Save shares them with the group.
+CSC13114 (`2609-AWAD-23KTPM1`) class project — an AI-assisted weekend trip schedule and budget planner for Ho Chi Minh City.
 
 ## Current state
 
-This branch delivers the KAN-9 security setup. The repository does not yet contain the application scaffold, database schema, endpoint implementation or model integration. It cannot currently start a travel-planning application. Thiện owns the scaffold and application checks in KAN-5/KAN-6; Thịnh owns the API contract and endpoint tests in KAN-11/KAN-12.
+KAN-5 supplies a runnable TypeScript/Fastify API with a health route and shared Zod/RFC 9457 helpers. The agreed React/Next.js frontend and PostgreSQL integration are not implemented yet; no travel-planning endpoint, database schema or model client is present. This branch adds the KAN-9 security setup. Thiện owns CI and branch protection in KAN-6; Thịnh owns the API contract and endpoint tests in KAN-11/KAN-12.
 
-## Run the available checks
+## Stack
 
-Prerequisites: Git and Node.js 22 or newer. No npm dependencies, database or model key are needed for these checks. Run from the repository root:
+- **Runtime:** Node.js `>= 22.0.0`
+- **Package Manager:** pnpm `>= 9.0.0` (workspace monorepo)
+- **Language:** TypeScript (strict mode)
+- **Backend API:** Fastify + Zod (`apps/api`)
+- **Shared Schemas & Types:** Zod + RFC 9457 Problem Details (`packages/shared`)
+- **Planned frontend/data:** React + Next.js, PostgreSQL
+- **Quality Gate:** Biome (lint & format), `tsc --noEmit` (typecheck), Vitest (tests)
+
+## Repository Layout
+
+```text
+.
+├── apps/
+│   └── api/              # Fastify API server, routes, and tests
+├── packages/
+│   └── shared/           # Shared Zod schemas, types, and RFC 9457 helpers
+├── docs/                 # Project briefs and endpoint contracts
+├── biome.json            # Lint & formatting rules
+├── tsconfig.base.json    # Shared strict TypeScript config
+└── vitest.config.ts      # Workspace test runner config
+```
+
+## Getting Started (Fresh Clone)
+
+1. Install prerequisites: **Node.js >= 22** and **pnpm 9.12.0** (the pinned `packageManager` version).
+2. Install dependencies:
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+3. Run all quality checks. CI must use these exact commands when KAN-6 is integrated; this branch does not yet supply CI or claim required checks are enabled:
+
+```bash
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
+```
+
+Or run every check in sequence with one wrapper command:
+
+```bash
+pnpm check
+```
+
+## Standard Check Commands
+
+Every check has one documented local command; use these same commands in CI:
+
+| Check | Command | Tool |
+|---|---|---|
+| Lint | `pnpm lint` | Biome (`biome lint .`) |
+| Format check | `pnpm format:check` | Biome (`biome format .`) |
+| Type check | `pnpm typecheck` | TypeScript (`tsc --noEmit` across workspaces) |
+| Tests | `pnpm test` | Vitest, Node security tests, then secret scan |
+| Auto-format (local fix) | `pnpm format` | Biome (`biome format --write .`) |
+
+## Security checks
+
+`pnpm test` preserves the existing `vitest run`, then runs `pnpm test:security` and `pnpm secrets:check`. Its failure propagates from any stage. The standalone checks need only Git and Node.js 22+, with no database or model key:
+
+```sh
+pnpm test:security
+pnpm secrets:check
+```
+
+Or run them without pnpm/dependencies:
 
 ```sh
 node --test tests/security/scan-secrets.test.mjs
 node scripts/scan-secrets.mjs
-git diff --check
 ```
 
-The scanner exits `0` when its configured patterns find nothing, `1` for policy findings and `2` when inspection is incomplete. It scans reachable Git history, the staged index and the working tree, including ignored local env files. Findings redact credential values. Read [scope and limitations](docs/security.md) before treating a clean result as evidence.
+The scanner exits `0` when configured patterns find nothing, `1` for policy findings and `2` for incomplete inspection. It covers reachable history, the index and working files including ignored local env files, with redacted diagnostics. Read [scope and limitations](docs/security.md). A shallow checkout must be completed before scanning. Never copy real local credentials into a verification clone.
 
-Application `lint`, `format:check`, `typecheck` and `test` commands are **pending KAN-5**. They are not runnable npm scripts today. Once the scaffold lands, Thiện must publish the same commands in `package.json`, this README, `AGENTS.md` and required CI. Add the standalone security tests and scanner to those checks without replacing the application contract tests. CI is not configured or claimed green by this branch.
+## Local Development
 
-For a fresh-clone verification, clone the relevant branch with full history, enter its root, and run the three commands above. A shallow checkout must be completed before the history scan can pass. Do not copy a real `.env` into the clone.
+Start the API server in watch mode:
+
+```bash
+pnpm dev:api
+```
+
+Health check endpoint:
+
+```bash
+curl http://localhost:3001/health
+```
+
+## Attribution
+
+Data attributions required by the project brief: OpenStreetMap, Wikimedia, and Open-Meteo.
 
 ## Model, cost and zero-spend policy
 
@@ -42,19 +122,21 @@ Owner setup, once application integration is ready:
 
 1. Verify the Groq organization is on the Free Plan, has not been upgraded to paid billing, and can access the selected model within its quotas.
 2. Create a dedicated server-side API key and apply available restrictions. Keep it out of chat, Git, screenshots and browser code.
-3. Copy `.env.example` to `.env.local` and fill the local values. Set `GROQ_MODEL` to `openai/gpt-oss-20b`. Obtain `DATABASE_URL` from the group's PostgreSQL setup; do not invent or commit credentials.
+3. Copy `.env.example` to `.env.local` and fill the local values for future model/database integration. The current Fastify process does not automatically load that file; it reads its process environment. Set `GROQ_MODEL` to `openai/gpt-oss-20b`. Obtain `DATABASE_URL` from the group's PostgreSQL setup; do not invent or commit credentials.
 4. Record the verification date, organization/plan, model, actual quota limits and redacted plan/billing evidence in the PA#2 evidence handoff. No live model calls are needed for unit tests.
 
 ## Environment and security
 
-Every value in `.env.example` is deliberately empty. The three variables are the **planned** server configuration; no application consumes them in this branch yet:
+Every value in `.env.example` is deliberately empty. The inventory covers the two variables currently read by the API process and three planned server-only integration variables:
 
 | Variable | Intended use |
 | --- | --- |
+| `HOST` | API listen address; defaults to `0.0.0.0` when unset |
+| `PORT` | API listen port; defaults to `3001` when unset |
 | `DATABASE_URL` | Server-only PostgreSQL connection string |
 | `GROQ_API_KEY` | Server-only Groq API credential |
 | `GROQ_MODEL` | Server-only selected model identifier |
 
-As implementation introduces variables, update this inventory and the empty example in the same change. No sensitive variable may use a `NEXT_PUBLIC_` prefix. The runtime boundary check is pending application code; the scanner is a development check, not a replacement for that boundary.
+As implementation introduces variables, update this inventory and the empty example in the same change. No sensitive variable may use a `NEXT_PUBLIC_` prefix. The model/database runtime boundary check is pending integration; the scanner is a development check, not a replacement for that boundary.
 
 See [assistant permissions](docs/permissions.md), [secret-handling and verification](docs/security.md), and, after KAN-8/KAN-10 are integrated, `AGENTS.md`, `docs/workflow.md` and `AI-LOG.md`. Work on a branch whose name exactly equals its Jira ticket, such as `KAN-9`; preserve review evidence and use PRs rather than direct pushes to `main`.

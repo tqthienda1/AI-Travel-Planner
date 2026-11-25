@@ -4,7 +4,7 @@
 
 Only commit `.env.example`, with every assignment empty. Keep `.env`, `.env.local` and other local env files ignored. The root ignore rules also exclude private-key and common service-account credential files; ignore rules are not a secret detector. `git check-ignore` behaviour is verified by the standalone tests.
 
-Groq requests must originate in server code when the application is implemented. `GROQ_API_KEY` and `DATABASE_URL` must never enter a browser bundle, error response or log. The absence of application code means that runtime boundary is still to be implemented and reviewed; this branch does not claim a built Next.js bundle has been tested.
+Groq requests must originate in server code when model integration is implemented. `GROQ_API_KEY` and `DATABASE_URL` must never enter a browser bundle, error response or log. KAN-5 now supplies the Fastify health API, but no model client, database integration or Next.js frontend exists yet; this branch does not claim those runtime boundaries or a built browser bundle have been tested. The API currently reads `HOST` and `PORT` from its process environment. `.env.example` inventories those two existing variables and the three planned integration variables, with all values empty; the API does not automatically load `.env.local` today.
 
 ## Run a secret scan
 
@@ -16,7 +16,7 @@ Run from the repository root with Git and Node.js 22+. The command inspects:
 
 1. Every blob reachable through local Git refs, including fetched remote branches and tags, even if its file was deleted from the current tree. It maps paths from all reachable commits so an `.env.example` rename cannot evade its empty-value policy.
 2. Staged index blobs, including a staged secret whose working copy has already been cleaned.
-3. Current regular working files, including untracked and Git-ignored env files. It skips `.git`, `node_modules`, `.next`, `out`, `build`, `dist` and `coverage` entries in this working-file walk. History blobs are not excluded by these names.
+3. Current regular working files, including untracked and Git-ignored env files. It skips `.git`, `node_modules`, `.pnpm-store`, `.next`, `out`, `build`, `dist` and `coverage` entries in this working-file walk. History blobs are not excluded by these names.
 
 Rules detect recognizable private-key headers, common provider-token shapes, password-bearing database URLs, literal assignments to sensitive names, forbidden sensitive `NEXT_PUBLIC_` names, and nonempty `.env.example` assignments. Diagnostic records contain only rule, file path, line and source (blob hash or working tree/index), never the matched value. Do not add credential excerpts to review comments or AI-LOG.
 
@@ -28,7 +28,7 @@ Exit meanings:
 | `1` | One or more secret-policy findings; investigate before committing/publishing |
 | `2` | Incomplete inspection, such as Git failure, shallow history, submodule, symlink or oversized object; do not treat this as clean |
 
-For CI integration, use a full checkout and run exactly the same command. Thiện owns that integration in KAN-6; no GitHub workflow or required-check setting is supplied by KAN-9.
+The root `pnpm test` now runs the existing Vitest suite, `pnpm test:security` and then `pnpm secrets:check`; `pnpm check` includes that root test command. For CI integration, use a full checkout and the documented commands. Thiện owns that integration in KAN-6; no GitHub workflow or required-check setting is supplied by KAN-9.
 
 ## What the scan cannot prove
 

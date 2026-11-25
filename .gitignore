@@ -1,4 +1,16 @@
-# Local configuration and credentials; commit only empty examples.
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment & secrets
 .env
 .env.*
 !.env.example
@@ -7,17 +19,14 @@
 credentials*.json
 service-account*.json
 
-# Dependency, build, and test output.
-node_modules/
-.next/
-out/
-build/
-dist/
-coverage/
-*.tsbuildinfo
+# Logs
+*.log
 npm-debug.log*
+pnpm-debug.log*
 
-# Local editor and operating system files.
+# OS & editor files
 .DS_Store
 Thumbs.db
+.vscode/*
+!.vscode/extensions.json
 .idea/
