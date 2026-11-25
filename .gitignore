@@ -3,6 +3,8 @@ node_modules/
 .pnpm-store/
 
 # Build outputs
+.next/
+out/
 dist/
 build/
 coverage/
@@ -12,6 +14,10 @@ coverage/
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+credentials*.json
+service-account*.json
 
 # Logs
 *.log

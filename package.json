@@ -13,7 +13,9 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run",
+    "test": "vitest run && pnpm test:security && pnpm secrets:check",
+    "test:security": "node --test tests/security/scan-secrets.test.mjs",
+    "secrets:check": "node scripts/scan-secrets.mjs",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
     "dev:api": "pnpm --filter @ai-travel-planner/api dev"
   },
