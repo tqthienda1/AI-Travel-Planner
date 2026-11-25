@@ -9,6 +9,7 @@ const SENSITIVE_NAME = /(?:api[_-]?key|secret|token|password|private[_-]?key|dat
 const PATTERNS = [
   ['private-key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/g],
   ['openai-key', /\bsk-[A-Za-z0-9_-]{20,}/g],
+  ['groq-key', /\bgsk_[A-Za-z0-9]{20,}/g],
   ['github-token', /\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})/g],
   ['aws-access-key', /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g],
   ['google-api-key', /\bAIza[A-Za-z0-9_-]{30,}/g],
@@ -47,9 +48,9 @@ function inspect(buffer, paths, source, findings, stats) {
     if (!assignment) continue;
     const [, name, raw] = assignment;
     if (name.startsWith('NEXT_PUBLIC_') && SENSITIVE_NAME.test(name)) report('public-secret-variable', index + 1);
-    const quoted = raw.match(/^["']([^"']*)["']\s*[,;]?\s*(?:(?:\/\/|#).*)?$/);
+    const quoted = raw.match(/^(["'])((?:\\.|(?!\1|\\).)*)\1\s*[,;]?\s*(?:(?:\/\/|#).*)?$/);
     const bare = raw.match(/^([^\s#'";,]+)\s*(?:#.*)?$/);
-    const value = quoted?.[1] ?? bare?.[1] ?? '';
+    const value = quoted?.[2] ?? bare?.[1] ?? '';
     if (SENSITIVE_NAME.test(name) && value.length >= 8 &&
         !/^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|process\.env\.[A-Za-z_][A-Za-z0-9_]*|undefined|null)$/i.test(value)) {
       report('secret-assignment', index + 1);

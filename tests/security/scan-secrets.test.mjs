@@ -10,9 +10,10 @@ const project = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const scanner = join(project, 'scripts/scan-secrets.mjs');
 const fakeKey = ['sk', 'fixture'.repeat(6)].join('-');
 const fakeGoogleKey = ['AI', 'za', 'fixture'.repeat(6)].join('');
+const fakeGroqKey = ['gsk', 'fixture'.repeat(6)].join('_');
 
-function run(program, args, cwd) {
-  return spawnSync(program, args, { cwd, encoding: 'utf8', windowsHide: true });
+function run(program, args, cwd, timeout) {
+  return spawnSync(program, args, { cwd, encoding: 'utf8', windowsHide: true, timeout });
 }
 function git(repo, args) {
   const result = run('git', args, repo);
@@ -36,14 +37,14 @@ function commit(repo) {
   git(repo, ['add', '--all']);
   git(repo, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'fixture']);
 }
-function scan(repo) { return run(process.execPath, [scanner, repo], project); }
+function scan(repo, timeout) { return run(process.execPath, [scanner, repo], project, timeout); }
 function findings(result) {
   return result.stderr.trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
 }
 
 test('clean repository, empty env example, and inert binary data pass with qualified output', t => {
   const repo = fixture(t);
-  put(repo, '.env.example', 'DATABASE_URL=\nGEMINI_API_KEY=\nGEMINI_MODEL=\n');
+  put(repo, '.env.example', 'DATABASE_URL=\nGROQ_API_KEY=\nGROQ_MODEL=\n');
   put(repo, 'notes with spaces.txt', 'No credential here.\n');
   put(repo, 'image.bin', Buffer.from([0, 255, 1, 2]));
   commit(repo);
@@ -72,11 +73,11 @@ test('ignored untracked env file is inspected', t => {
   const repo = fixture(t);
   put(repo, '.gitignore', '.env\n');
   commit(repo);
-  put(repo, '.env', `GEMINI_API_KEY=${fakeGoogleKey}\n`);
+  put(repo, '.env', `GROQ_API_KEY=${fakeGroqKey}\n`);
   const result = scan(repo);
   assert.equal(result.status, 1);
   assert.ok(findings(result).some(item => item.path === '.env' && item.source === 'working-tree'));
-  assert.ok(!`${result.stdout}${result.stderr}`.includes(fakeGoogleKey));
+  assert.ok(!`${result.stdout}${result.stderr}`.includes(fakeGroqKey));
 });
 
 test('non-repository fails closed without leaking Git diagnostics', t => {
@@ -88,7 +89,7 @@ test('non-repository fails closed without leaking Git diagnostics', t => {
 
 test('public secret env name is forbidden even when its value is blank', t => {
   const repo = fixture(t);
-  put(repo, '.env.example', 'NEXT_PUBLIC_GEMINI_API_KEY=\n');
+  put(repo, '.env.example', 'NEXT_PUBLIC_GROQ_API_KEY=\n');
   const result = scan(repo);
   assert.equal(result.status, 1);
   assert.ok(findings(result).some(item => item.rule === 'public-secret-variable'));
@@ -96,7 +97,7 @@ test('public secret env name is forbidden even when its value is blank', t => {
 
 test('nonempty env example values fail even for nonsensitive configuration', t => {
   const repo = fixture(t);
-  put(repo, '.env.example', 'GEMINI_MODEL=some-model\n');
+  put(repo, '.env.example', 'GROQ_MODEL=some-model\n');
   const result = scan(repo);
   assert.equal(result.status, 1);
   assert.ok(findings(result).some(item => item.rule === 'env-example-value'));
@@ -104,7 +105,7 @@ test('nonempty env example values fail even for nonsensitive configuration', t =
 
 test('example path aliases are checked across history, not only the first blob path', t => {
   const repo = fixture(t);
-  put(repo, 'config.env', 'GEMINI_MODEL=some-model\n');
+  put(repo, 'config.env', 'GROQ_MODEL=some-model\n');
   commit(repo);
   git(repo, ['mv', 'config.env', '.env.example']);
   commit(repo);
@@ -201,4 +202,51 @@ test('your_ prefix does not exempt an arbitrary literal password', t => {
   const repo = fixture(t);
   put(repo, '.env', `DATABASE_PASSWORD=${['your', 'fixture'.repeat(4)].join('_')}\n`);
   assert.equal(scan(repo).status, 1);
+});
+
+test('raw Groq token outside an assignment is detected and redacted', t => {
+  const repo = fixture(t);
+  put(repo, 'notes.txt', `Accidentally pasted: ${fakeGroqKey}\n`);
+  const result = scan(repo);
+  assert.equal(result.status, 1);
+  assert.ok(findings(result).some(item => item.rule === 'groq-key'));
+  assert.ok(!`${result.stdout}${result.stderr}`.includes(fakeGroqKey));
+});
+
+test('quoted passwords may contain the other quote delimiter', t => {
+  const repo = fixture(t);
+  put(repo, '.env', [
+    ['DATABASE_PASSWORD="', "can't-ignore-fixture", '" # local'].join(''),
+    ["SESSION_SECRET='", 'has"double"quotes-fixture', "' # local"].join(''),
+  ].join('\n'));
+  const result = scan(repo);
+  assert.equal(result.status, 1);
+  assert.equal(findings(result).filter(item => item.rule === 'secret-assignment').length, 2);
+});
+
+test('a quoted password with an escaped delimiter remains detectable', t => {
+  const repo = fixture(t);
+  put(repo, '.env', ['DATABASE_PASSWORD="', 'fixture\\"escaped-delimiter', '" # local'].join(''));
+  const result = scan(repo);
+  assert.equal(result.status, 1);
+  assert.ok(findings(result).some(item => item.rule === 'secret-assignment'));
+});
+
+test('provider token in non-UTF8 raw bytes is detected without claiming embedded extraction', t => {
+  const repo = fixture(t);
+  put(repo, 'raw.bin', Buffer.concat([Buffer.from([255, 0]), Buffer.from(fakeGoogleKey)]));
+  const result = scan(repo);
+  assert.equal(result.status, 1);
+  assert.ok(findings(result).some(item => item.rule === 'google-api-key'));
+  assert.match(result.stdout, /raw bytes only/);
+});
+
+test('malformed quoted input completes within a bounded subprocess timeout', t => {
+  const repo = fixture(t);
+  put(repo, '.env.example', ['DATABASE_PASSWORD="', '\\'.repeat(1000), 'missing closing delimiter'].join(''));
+  const result = scan(repo, 5000);
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 1);
+  assert.ok(findings(result).some(item => item.rule === 'env-example-value'));
 });
