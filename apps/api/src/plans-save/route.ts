@@ -401,17 +401,15 @@ export async function registerPlansSavePlugin(
             : [trip.ownerUserId],
         );
 
-        // Deliberate contract break (KAN-13): relax group draft creator check and emit a
-        // non-contract RFC 9457 problem type to prove contract tests catch regressions and block CI.
         const isOwnerAuthorized =
           trip.mode === "individual"
             ? caller.userId === plan.ownerUserId
-            : activeMemberIds.has(caller.userId);
+            : activeMemberIds.has(caller.userId) && caller.userId === plan.createdByUserId;
 
         if (!isOwnerAuthorized) {
           return sendProblem(reply, {
-            type: "https://ai-travel-planner.local/problems/forbidden",
-            title: "Forbidden",
+            type: PROBLEM_TYPES.ownershipViolation,
+            title: "Ownership Violation",
             status: 403,
             detail: "You do not own this plan draft or are not an active member of its trip group.",
             instance,
