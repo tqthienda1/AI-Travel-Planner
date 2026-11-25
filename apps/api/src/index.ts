@@ -1,7 +1,7 @@
 import { buildApp } from "./app.js";
+import { parseServerConfig } from "./config.js";
 
-const port = Number(process.env.PORT ?? 3001);
-const host = process.env.HOST ?? "0.0.0.0";
+const { port, host } = parseServerConfig(process.env);
 
 const app = buildApp({ logger: true });
 
