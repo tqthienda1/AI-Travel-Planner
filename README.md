@@ -39,7 +39,7 @@ KAN-5 supplies a runnable TypeScript/Fastify API with a health route and shared 
 pnpm install --frozen-lockfile
 ```
 
-3. Run all quality checks. CI must use these exact commands when KAN-6 is integrated; this branch does not yet supply CI or claim required checks are enabled:
+3. Run all quality checks. The integrated GitHub Actions workflow runs these exact commands. Its test job checks out full history for the secret scanner; required-check and branch-protection settings need separate evidence:
 
 ```bash
 pnpm lint
