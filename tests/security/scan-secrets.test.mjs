@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
@@ -55,6 +63,50 @@ function findings(result) {
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line));
+}
+
+function assertEnvironmentInventory(root) {
+  const example = readFileSync(join(root, ".env.example"), "utf8");
+  const assignments = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)];
+  const names = new Set(assignments.map((match) => match[1]));
+  assert.equal(names.size, assignments.length, "Duplicate environment variable");
+  for (const match of assignments) assert.equal(match[2].trim(), "");
+  const excluded = new Set([
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+    "tests",
+    "__tests__",
+  ]);
+  function visit(dir) {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (excluded.has(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(path);
+      } else if (
+        entry.isFile() &&
+        /\.[cm]?[jt]sx?$/.test(entry.name) &&
+        !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(entry.name)
+      ) {
+        const source = readFileSync(path, "utf8");
+        // Literal process.env reads and configuration parameters conventionally named env.
+        // Arbitrary aliases, destructuring and computed keys still require source review.
+        const reads =
+          /\b(?:process\s*\.\s*env|env)\s*(?:\.\s*([A-Z][A-Z0-9_]*)|\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\])/g;
+        for (const match of source.matchAll(reads)) {
+          const name = match[1] ?? match[2];
+          assert.ok(names.has(name), `Missing environment variable ${name} in ${path}`);
+        }
+      }
+    }
+  }
+  visit(join(root, "apps"));
+  visit(join(root, "packages"));
+  return names;
 }
 
 test("clean repository, empty env example, and inert binary data pass with qualified output", (t) => {
@@ -295,14 +347,47 @@ test("malformed quoted input completes within a bounded subprocess timeout", (t)
 });
 
 test("empty environment inventory covers existing API reads and planned Groq integration", () => {
-  const example = readFileSync(join(project, ".env.example"), "utf8");
-  const assignments = [...example.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)];
-  const names = assignments.map((match) => match[1]);
-  assert.equal(new Set(names).size, names.length);
-  assert.deepEqual(names.sort(), ["DATABASE_URL", "GROQ_API_KEY", "GROQ_MODEL", "HOST", "PORT"]);
-  for (const match of assignments) assert.equal(match[2].trim(), "");
-  const source = readFileSync(join(project, "apps/api/src/index.ts"), "utf8");
-  for (const match of source.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) {
-    assert.ok(names.includes(match[1]), `Missing API environment variable: ${match[1]}`);
+  const names = assertEnvironmentInventory(project);
+  for (const name of ["DATABASE_URL", "GROQ_API_KEY", "GROQ_MODEL", "HOST", "PORT"]) {
+    assert.ok(names.has(name), `Missing required configuration variable ${name}`);
   }
+});
+
+test("environment inventory detects omitted variables in nested application modules", (t) => {
+  const repo = fixture(t, false);
+  put(repo, ".env.example", "HOST=\n");
+  put(repo, "apps/api/src/services/weather.ts", "export const url = process.env.WEATHER_URL;\n");
+  assert.throws(() => assertEnvironmentInventory(repo), /Missing environment variable WEATHER_URL/);
+  put(repo, ".env.example", "HOST=\nWEATHER_URL=\n");
+  assert.doesNotThrow(() => assertEnvironmentInventory(repo));
+});
+
+test("environment inventory covers shared config env parameters and literal bracket reads", (t) => {
+  const repo = fixture(t, false);
+  put(repo, ".env.example", "HOST=\n");
+  put(
+    repo,
+    "packages/shared/src/config.ts",
+    "export const config = (env) => env['PORT'] ?? env.HOST;\n",
+  );
+  assert.throws(() => assertEnvironmentInventory(repo), /Missing environment variable PORT/);
+  put(repo, ".env.example", "HOST=\nPORT=\n");
+  put(repo, "apps/api/src/provider.mjs", "export const model = process.env['GROQ_MODEL'];\n");
+  assert.throws(() => assertEnvironmentInventory(repo), /Missing environment variable GROQ_MODEL/);
+  put(repo, ".env.example", "HOST=\nPORT=\nGROQ_MODEL=\n");
+  assert.doesNotThrow(() => assertEnvironmentInventory(repo));
+});
+
+test("environment inventory ignores test fixtures and generated dependencies", (t) => {
+  const repo = fixture(t, false);
+  put(repo, ".env.example", "HOST=\nADDITIONAL_DOCUMENTED_OPTION=\n");
+  for (const path of [
+    "apps/api/tests/example.ts",
+    "apps/api/src/example.test.ts",
+    "packages/shared/node_modules/example/index.js",
+    "apps/api/dist/index.js",
+  ]) {
+    put(repo, path, "export const synthetic = process.env.FIXTURE_ONLY;\n");
+  }
+  assert.doesNotThrow(() => assertEnvironmentInventory(repo));
 });
