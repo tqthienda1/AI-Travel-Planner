@@ -47,11 +47,11 @@ function inspect(buffer, paths, source, findings, stats) {
     if (!assignment) continue;
     const [, name, raw] = assignment;
     if (name.startsWith('NEXT_PUBLIC_') && SENSITIVE_NAME.test(name)) report('public-secret-variable', index + 1);
-    const quoted = raw.match(/^["']([^"']*)["']\s*[,;]?\s*(?:\/\/.*)?$/);
+    const quoted = raw.match(/^["']([^"']*)["']\s*[,;]?\s*(?:(?:\/\/|#).*)?$/);
     const bare = raw.match(/^([^\s#'";,]+)\s*(?:#.*)?$/);
     const value = quoted?.[1] ?? bare?.[1] ?? '';
     if (SENSITIVE_NAME.test(name) && value.length >= 8 &&
-        !/^(?:<.*>|\$\{.*\}|process\.env\..*|your[_-].*|replace[_-].*|example|placeholder|undefined|null)$/i.test(value)) {
+        !/^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|process\.env\.[A-Za-z_][A-Za-z0-9_]*|undefined|null)$/i.test(value)) {
       report('secret-assignment', index + 1);
     }
     for (const path of paths) {
@@ -64,8 +64,11 @@ export function scanRepository(repoPath = process.cwd()) {
   const repo = resolve(repoPath);
   const root = git(repo, ['rev-parse', '--show-toplevel']).toString('utf8').trim();
   if (resolve(root).toLowerCase() !== repo.toLowerCase()) throw new Error('Run from the repository root.');
+  if (git(repo, ['rev-parse', '--is-shallow-repository']).toString('utf8').trim() === 'true') {
+    throw new Error('Repository history is shallow; fetch full history before scanning.');
+  }
   const findings = [];
-  const stats = { historyBlobs: 0, workingFiles: 0, binaryObjects: 0 };
+  const stats = { historyBlobs: 0, indexBlobs: 0, workingFiles: 0, binaryObjects: 0 };
   const pathsByBlob = new Map();
   const commits = git(repo, ['rev-list', '--all']).toString('utf8').trim().split('\n').filter(Boolean);
   for (const commit of commits) {
@@ -91,6 +94,15 @@ export function scanRepository(repoPath = process.cwd()) {
       stats.historyBlobs += 1;
     }
   }
+  for (const entry of git(repo, ['ls-files', '--stage', '-z']).toString('utf8').split('\0')) {
+    if (!entry) continue;
+    const tab = entry.indexOf('\t');
+    const [mode, oid, stage] = entry.slice(0, tab).split(' ');
+    if (stage !== '0') throw new Error('Unmerged index entries require resolution before scanning.');
+    if (mode === '160000') throw new Error('Submodules require a separate scan; no clean result is available.');
+    inspect(git(repo, ['cat-file', 'blob', oid]), [entry.slice(tab + 1)], `index:${oid}`, findings, stats);
+    stats.indexBlobs += 1;
+  }
   function walk(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const file = join(dir, entry.name);
@@ -112,7 +124,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (process.argv.length > 3) throw new Error('Usage: node scripts/scan-secrets.mjs [repository-root]');
     const result = scanRepository(process.argv[2]);
     for (const item of result.findings) console.error(JSON.stringify(item));
-    console.log(`Inspected ${result.stats.historyBlobs} reachable history blobs and ${result.stats.workingFiles} working files.`);
+    console.log(`Inspected ${result.stats.historyBlobs} reachable history blobs, ${result.stats.indexBlobs} index blobs and ${result.stats.workingFiles} working files.`);
     console.log(`Binary/non-UTF8 objects: ${result.stats.binaryObjects}; raw bytes only, not embedded/compressed content.`);
     console.log(result.findings.length ? `${result.findings.length} secret-policy finding(s).` : 'No configured secret patterns found. This is not proof that all secrets are absent.');
     process.exitCode = result.findings.length ? 1 : 0;
