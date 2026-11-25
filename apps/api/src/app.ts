@@ -1,8 +1,11 @@
 import { PROBLEM_CONTENT_TYPE, createProblemDetails } from "@ai-travel-planner/shared";
 import Fastify, { type FastifyInstance } from "fastify";
+import { registerPlansSavePlugin } from "./plans-save/route.js";
+import type { PlansSaveRuntimeOptions } from "./plans-save/types.js";
 
 export interface BuildAppOptions {
   logger?: boolean;
+  plansSave?: PlansSaveRuntimeOptions;
 }
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -16,6 +19,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
       service: "ai-travel-planner-api",
     };
   });
+
+  app.register(registerPlansSavePlugin, options.plansSave ?? {});
 
   app.setNotFoundHandler((request, reply) => {
     const problem = createProblemDetails({
