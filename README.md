@@ -139,4 +139,4 @@ Every value in `.env.example` is deliberately empty. The inventory covers the tw
 
 As implementation introduces variables, update this inventory and the empty example in the same change. No sensitive variable may use a `NEXT_PUBLIC_` prefix. The model/database runtime boundary check is pending integration; the scanner is a development check, not a replacement for that boundary.
 
-See [assistant permissions](docs/permissions.md), [secret-handling and verification](docs/security.md), and, after KAN-8/KAN-10 are integrated, `AGENTS.md`, `docs/workflow.md` and `AI-LOG.md`. Work on a branch whose name exactly equals its Jira ticket, such as `KAN-9`; preserve review evidence and use PRs rather than direct pushes to `main`.
+See [assistant permissions](docs/permissions.md), [secret-handling and verification](docs/security.md), `AGENTS.md` and `AI-LOG.md`. Work on a branch whose name exactly equals its Jira ticket, such as `KAN-9`; preserve review evidence and use PRs rather than direct pushes to `main`.
