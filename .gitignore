@@ -1,0 +1,23 @@
+# Local configuration and credentials; commit only empty examples.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+service-account*.json
+
+# Dependency, build, and test output.
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+
+# Local editor and operating system files.
+.DS_Store
+Thumbs.db
+.idea/
