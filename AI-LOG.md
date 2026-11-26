@@ -117,12 +117,60 @@ GitHub publication evidence is recorded below.
 
 ## Published evidence
 
+- [KAN-5 PR #1](https://github.com/tqthienda1/AI-Travel-Planner/pull/1) was merged
+  into main at `4a2c4e4` (scaffold + one-command checks).
+- [KAN-6 PR #2](https://github.com/tqthienda1/AI-Travel-Planner/pull/2) was merged
+  into main at `21ee0a2` (`.github/workflows/ci.yml`), [PR #3](https://github.com/tqthienda1/AI-Travel-Planner/pull/3)
+  demonstrated a blocked red CI check (`45650169855`) and code-only fix (`a541f32` /
+  green CI `45650304151`), and [PR #4](https://github.com/tqthienda1/AI-Travel-Planner/pull/4)
+  added `docs/evidence/branch-protection.jpg`.
+- [KAN-11 PR #5](https://github.com/tqthienda1/AI-Travel-Planner/pull/5) merged
+  `docs/contract/post-plans-save.md`, [KAN-12 PR #8](https://github.com/tqthienda1/AI-Travel-Planner/pull/8)
+  merged the endpoint and 23 contract tests, [KAN-13 PR #10](https://github.com/tqthienda1/AI-Travel-Planner/pull/10)
+  demonstrated a deliberate contract break (`ae6f47b` -> red CI `45657450555` /
+  `45657558258`, code-only fix `8ca561b` -> green CI `45657847229`), and
+  [PR #11](https://github.com/tqthienda1/AI-Travel-Planner/pull/11) added red/green CI screenshots.
 - [KAN-9 PR #6](https://github.com/tqthienda1/AI-Travel-Planner/pull/6) was merged
   into main at `e4086020c20925a57cd5eabbd5da6d12d256bd7b`.
 - [CI run #12](https://github.com/tqthienda1/AI-Travel-Planner/actions/runs/45654519535)
   completed successfully for PR head `a618ff6505f95beeacb3be7c22188fec1a0ce4bb`.
+- [KAN-10 PR #7](https://github.com/tqthienda1/AI-Travel-Planner/pull/7) merged
+  `AI-LOG.md` and [KAN-8 PR #9](https://github.com/tqthienda1/AI-Travel-Planner/pull/9)
+  merged `AGENTS.md`.
 - These are observed GitHub results, separate from the local checks above.
-  They do not establish provider billing settings or the endpoint deliberate-break proof.
+  They do not establish provider billing settings.
+
+## Teammate contributions — Trần Quốc Thiện (KAN-5, KAN-6, KAN-7)
+
+Date: 2026-11-25 to 2026-11-26 (GMT+7). Owner: Trần Quốc Thiện.
+
+### Tools and contributions
+
+| Tool | Actual contribution |
+| --- | --- |
+| Antigravity assistant (Gemini models) | Scaffolded pnpm/TypeScript monorepo (`KAN-5`), drafted `.github/workflows/ci.yml` and Blocked PR demo (`KAN-6`), drafted `PA2.md` and `SELF_ASSESSMENT_REPORT.md` (`KAN-7`) |
+| GitHub CLI (`gh`) | Created PRs #1–#4, configured and verified `main` Branch Protection rules via REST API, monitored CI runs |
+| Atlassian MCP | Read Jira tasks (`KAN-4`..`KAN-13`), posted KAN-6 evidence comments, transitioned `KAN-5` and `KAN-6` to Done |
+
+### Changed / Rejected
+
+#### LOG-006: Windows CRLF line endings broke Biome on fresh clones (`KAN-5`)
+
+- Observed: `biome format .` passed on initial local creation, but `biome.json` enforces `"lineEnding": "lf"` and fresh Windows checkouts normalized files to CRLF, failing `pnpm format:check`.
+- Rejected: ignoring line-ending checks or formatting manually before each commit.
+- Changed: added `.gitattributes` (`* text=auto eol=lf`) in commit `222181d` (PR #1) so fresh clones keep LF across Windows and Ubuntu CI runners.
+
+#### LOG-007: CI workflow structure, `pnpm/action-setup` version conflict, and Branch Protection evidence (`KAN-6`)
+
+- Observed: combining all checks into one CI job would produce only one status check context, and passing `version:` to `pnpm/action-setup@v4` conflicts with `"packageManager": "pnpm@9.12.0"` in `package.json`. Additionally, the first user screenshot of `Settings -> Branches` showed only the summary row without expanded rule checkboxes.
+- Rejected: single-job CI, redundant `version:` input on `pnpm/action-setup@v4`, leaving `enforce_admins` disabled, and keeping the summary-only screenshot as Branch Protection evidence.
+- Changed: split CI into 4 parallel required jobs (`lint`, `format-check`, `typecheck`, `test`) matching `README.md` 1-to-1, enabled `enforce_admins: true` (verified via Blocked PR #3: red commit `d271755` / run `45650169855` -> code-only fix `a541f32` / run `45650304151`), and captured the expanded rule view (`docs/evidence/branch-protection.jpg`, PR #4).
+
+#### LOG-008: Honest self-assessment calibration & pre-tag sequencing (`KAN-7`)
+
+- Observed: Groq's configurable spending cap applies only to paid tiers, and `AI-LOG.md` still awaited Thịnh's contract-track entries after PR #11 merged.
+- Rejected: claiming `10/10` on Criterion 2 without dashboard spending-cap evidence, or prematurely tagging `pa2` and packaging `.zip` before Thịnh appends his `AI-LOG.md` entries.
+- Changed: calibrated `SELF_ASSESSMENT_REPORT.md` to `95/100` (deducting `-2` honestly on Criterion 2 and `-1` calibration buffers on C1, C5, C6) and deferred `pa2` tagging / `.zip` packaging until Thịnh's `AI-LOG.md` PR lands on `main`.
 
 ## Model and spending policy
 
@@ -136,7 +184,5 @@ GitHub publication evidence is recorded below.
 
 ## Remaining evidence
 
-Append actual ticket PR/CI links and teammates' AI contributions as they occur.
-Required-check/protection settings, provider evidence and endpoint deliberate-
-break proof must not be marked complete without evidence. No PA#2 release tag
-or submission packaging was performed by this implementation.
+- Thịnh's AI tool contributions and `Changed / Rejected` entries for `KAN-11`, `KAN-12`, and `KAN-13` (follow-up PR before `pa2` tag).
+- Team sign-off on `SELF_ASSESSMENT_REPORT.md`, final `pa2` tag + green tag CI run, and external redacted Groq Free Plan evidence if available.
