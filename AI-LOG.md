@@ -172,6 +172,37 @@ Date: 2026-11-25 to 2026-11-26 (GMT+7). Owner: Trần Quốc Thiện.
 - Rejected: claiming `10/10` on Criterion 2 without dashboard spending-cap evidence, or prematurely tagging `pa2` and packaging `.zip` before Thịnh appends his `AI-LOG.md` entries.
 - Changed: calibrated `SELF_ASSESSMENT_REPORT.md` to `95/100` (deducting `-2` honestly on Criterion 2 and `-1` calibration buffers on C1, C5, C6) and deferred `pa2` tagging / `.zip` packaging until Thịnh's `AI-LOG.md` PR lands on `main`.
 
+## Teammate contributions — Thịnh Nguyễn Đặng Đức (KAN-11, KAN-12, KAN-13)
+
+Date: 2026-11-25 to 2026-11-26 (GMT+7). Owner: Thịnh Nguyễn Đặng Đức.
+
+### Tools and contributions
+
+| Tool | Actual contribution |
+| --- | --- |
+| Antigravity assistant (Gemini models) | Drafted the RFC 9457 endpoint contract `docs/contract/post-plans-save.md` (`KAN-11`), implemented the minimal `POST /plans/{planId}/save` endpoint (`apps/api/src/plans-save/*`) and 23 contract tests (`apps/api/tests/contract/post-plans-save.test.ts`) (`KAN-12`), created the deliberate contract break commit and code-only fix (`KAN-13`), and audited final PA#2 submission deliverables |
+| Atlassian MCP | Read assigned Jira tasks (`KAN-11`, `KAN-12`, `KAN-13`) and acceptance criteria; write transitions returned `Unauthorized: rejected by transport`, so ticket statuses were updated directly in Jira |
+
+### Changed / Rejected
+
+#### LOG-009: Control-character regex lint failure, strict header typing, and secret-scanner compatibility (`KAN-12`)
+
+- Observed: Before committing `KAN-12`, `pnpm lint` failed with 4 Biome `lint/suspicious/noControlCharactersInRegex` errors on the regex validating forbidden control characters in `note` (`apps/api/src/plans-save/schema.ts`), and `pnpm typecheck` failed with `TS2345` in `apps/api/tests/contract/post-plans-save.test.ts` because Node's `OutgoingHttpHeaders` permits numeric header values in `assertProblemDetails`. Additionally, `scripts/scan-secrets.mjs` inspects literal assignments `>= 8` characters on names matching `token|secret|api_key`, which can trigger false findings on naively named test JWT fixtures.
+- Rejected: suppressing Biome lint errors with ignore comments, relaxing TypeScript strictness, or editing `scripts/scan-secrets.mjs` to exclude test files.
+- Changed: replaced the regex with an explicit `hasForbiddenControlChars()` char-code loop in `apps/api/src/plans-save/schema.ts`, typed `assertProblemDetails` headers as `Record<string, string | number | string[] | undefined>`, and used non-sensitive fixture names (`DEFAULT_LOCAL_HMAC_KEY`, `bearerHeader`) so `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `vitest run` (`29/29`), `pnpm test:security` (`24/24`), and `pnpm secrets:check` (`0` findings) all passed cleanly in PR #8 (`7b92458`).
+
+#### LOG-010: Closure ordering failure in concurrent `409 idempotency-in-progress` contract test (`KAN-12`)
+
+- Observed: On the initial local Vitest run for `KAN-12`, `28/29` tests passed while the concurrent duplicate request test threw `ReferenceError: Cannot access 'gatePromise' before initialization` because the test barrier closure referenced a `let` binding before initialization.
+- Rejected: skipping the concurrent in-flight lock contract assertion or falling back to flaky `setTimeout` delays.
+- Changed: rewrote the test synchronization helper in `apps/api/tests/contract/post-plans-save.test.ts` with two explicit promises (`firstEntered` and `waitGate`) so the overlapping second request deterministically hits the in-flight idempotency lock and verifies `409 idempotency-in-progress` with `Retry-After: 1` before releasing the first request.
+
+#### LOG-011: Two-phase push sequencing for deliberate contract break & separate screenshot PR (`KAN-13`)
+
+- Observed: Pushing both the contract-breaking commit and the fix commit to `KAN-13` before opening PR #10 would cause GitHub Actions to run only on the final green head, losing the required red CI proof for Criterion 6. Committing PNG screenshots directly into PR #10 would also pollute the code-only break/fix diff. Furthermore, GitHub's "Update branch" merged `main` into `origin/KAN-13` (`eea3dd0`) while PR #10 was open.
+- Rejected: pushing both commits together, rebasing or force-pushing over `eea3dd0`, or mixing screenshot files into PR #10.
+- Changed: pushed Commit 1 (`ae6f47b`, modifying only `apps/api/src/plans-save/route.ts` with zero test changes) first and verified GitHub Actions failed exclusively on `test` (`45657450555` / `45657558258`, with `lint`, `format-check`, and `typecheck` green), then fast-forwarded `origin/KAN-13` (`eea3dd0`) and pushed code-only Commit 2 (`8ca561b` -> green CI `45657847229`, merged `c6d28fa`), and submitted the 3 screenshots separately via PR #11 (`KAN-13-evidence`, `86bcf6f`).
+
 ## Model and spending policy
 
 - Selected provider/model: Groq API, `openai/gpt-oss-20b`, intended Free Plan.
@@ -184,5 +215,4 @@ Date: 2026-11-25 to 2026-11-26 (GMT+7). Owner: Trần Quốc Thiện.
 
 ## Remaining evidence
 
-- Thịnh's AI tool contributions and `Changed / Rejected` entries for `KAN-11`, `KAN-12`, and `KAN-13` (follow-up PR before `pa2` tag).
-- Team sign-off on `SELF_ASSESSMENT_REPORT.md`, final `pa2` tag + green tag CI run, and external redacted Groq Free Plan evidence if available.
+- Final team sign-off on `SELF_ASSESSMENT_REPORT.md`, final `pa2` tag on `main` + green tag CI run, and external redacted Groq Free Plan dashboard evidence if available.
