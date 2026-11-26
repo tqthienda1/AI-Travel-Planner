@@ -4,7 +4,7 @@ CSC13114 (`2609-AWAD-23KTPM1`) class project — an AI-assisted weekend trip sch
 
 ## Current state
 
-KAN-5 supplies a runnable TypeScript/Fastify API with a health route and shared Zod/RFC 9457 helpers. The agreed React/Next.js frontend and PostgreSQL integration are not implemented yet; no travel-planning endpoint, database schema or model client is present. This branch adds the KAN-9 security setup. Thiện owns CI and branch protection in KAN-6; Thịnh owns the API contract and endpoint tests in KAN-11/KAN-12.
+PA#2 harness, quality gate, and endpoint contract deliverables are in place on `main`: a runnable TypeScript/Fastify API (`GET /health`, `POST /plans/{planId}/save` with deterministic cost calculation, 5-rule backend validator, and 23 RFC 9457 contract tests), shared Zod/RFC 9457 schemas, Biome/TypeScript/Vitest/secret-scanner checks, GitHub Actions CI with protected `main` branch rules, `AGENTS.md`, `docs/permissions.md`, `docs/security.md`, `docs/contract/post-plans-save.md`, `PA2.md`, `AI-LOG.md`, and `SELF_ASSESSMENT_REPORT.md`. The React/Next.js frontend, PostgreSQL persistence, and live Groq LLM client are planned for PA#3+.
 
 ## Stack
 
